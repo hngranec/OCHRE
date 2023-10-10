@@ -811,6 +811,7 @@ class DynamicHVAC(HVAC):
         # create vectors based on temperature, flow fraction, and plr
         t_list = np.array([1, t_in, t_in ** 2, t_ext_db, t_ext_db ** 2, t_in * t_ext_db], dtype=float)
         t_ratio = np.dot(t_list, params[param + '_t'])
+        t_ratio = max(t_ratio, 0)  # remove negative EIR/capacity, due to low outdoor temps
 
         ff_list = np.array([1, flow_fraction, flow_fraction ** 2], dtype=float)
         ff_ratio = np.dot(ff_list, params[param + '_ff'])
@@ -825,12 +826,14 @@ class DynamicHVAC(HVAC):
         # update max capacity using highest enabled speed
         max_speed = np.nonzero(~ self.disable_speeds)[0][-1] + 1
         self.capacity_max = self.calculate_biquadratic_param(param='cap', speed_idx=max_speed)
+        if self.capacity_max == 0:
+            raise Exception(f'{self.name} max capacity is zero.')
 
         if self.use_ideal_capacity:
             # determine capacity for each speed, check that capacity_ratio increases with speed
             capacities = [self.calculate_biquadratic_param(param='cap', speed_idx=speed)
                           for speed in range(self.n_speeds + 1)]
-            assert (np.diff(capacities) > 0).all()
+            assert (np.diff(capacities) >= 0).all()
 
             # determine ideal capacity
             capacity = super().update_capacity()
@@ -838,17 +841,24 @@ class DynamicHVAC(HVAC):
             # set speed_idx based on capacity
             if capacity <= capacities[1]:
                 # capacity is below lowest rated capacity, run at lowest speed with part load ratio
-                self.speed_idx = capacity / capacities[1]
+                self.speed_idx = capacity / max(capacities[1], 0.001)  # prevent possible divide by 0
             elif capacity >= capacities[-1]:
                 # capacity is above highest speed, run at max capacity
                 self.speed_idx = self.n_speeds
             else:
                 # interpolate between the 2 closest capacities, save fractional speed index
                 speed_high = np.searchsorted(capacities, capacity)
+                capacity_high = capacities[speed_high]
                 assert 1 <= speed_high <= self.n_speeds
                 speed_low = speed_high - 1
-                frac_high = (capacity - capacities[speed_low]) / (capacities[speed_high] - capacities[speed_low])
+                capacity_low = capacities[speed_low]
+                assert capacity_high > capacity_low
+                frac_high = (capacity - capacity_low) / (capacity_high - capacity_low)
                 self.speed_idx = speed_low + frac_high
+
+                # print warning if low speed capacity is zero
+                if capacity_low == 0:
+                    self.warn(f'Running at speed {speed_low} when capacity is 0')
 
             return capacity
         else:
