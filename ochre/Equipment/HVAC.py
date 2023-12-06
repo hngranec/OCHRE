@@ -16,7 +16,7 @@ SPEED_TYPES = {
 
 cp_air = 1.005  # kJ/kg-K
 rho_air = 1.2041  # kg/m^3
-
+#
 
 class HVAC(Equipment):
     """
@@ -1020,6 +1020,14 @@ class ASHPHeater(HeatPumpHeater):
         self.er_capacity = 0
         self.er_duty_cycle_capacity = None
 
+        # Must be > deadband / 2 or weird behavior might happen / excess ER runtime
+        # Default of 1.5 C based on thermostat manufactuerer defaults
+        self.er_setpoint_offset = kwargs.get('Supplemental Heater Setpoint Offset (C)',1.5) 
+        
+        #TODO: For some reason this variable is not sticking when set externally at the beginning of runtime.
+        # Variable should be set via kwarg
+        self.er_upper_deadband_override=False
+
         # Update minimum time for ER element
         er_on_time = kwargs.get(self.end_use + ' Minimum ER On Time', 0)
         self.min_time_in_mode['HP and ER On'] = dt.timedelta(minutes=er_on_time)
@@ -1075,6 +1083,12 @@ class ASHPHeater(HeatPumpHeater):
         # Update setpoint from schedule
         self.update_setpoint()
 
+        t_ext_db = self.current_schedule['Ambient Dry Bulb (C)']
+        if self.outdoor_temp_limit is not None:
+            hp_lockout = t_ext_db < self.outdoor_temp_limit
+        else:
+            hp_lockout = False
+
         if self.use_ideal_capacity:
             self.duty_cycle_capacity = None
             self.er_duty_cycle_capacity = None
@@ -1093,7 +1107,7 @@ class ASHPHeater(HeatPumpHeater):
             # get HP and ER modes separately
             hp_mode = super().update_internal_control()
             hp_on = hp_mode in ['On', 'HP On'] if hp_mode is not None else 'HP' in self.mode
-            er_mode = self.run_er_thermostat_control()
+            er_mode = self.run_er_thermostat_control(hp_lockout)
             er_on = er_mode == 'On' if er_mode is not None else 'ER' in self.mode
 
             # combine HP and ER modes
@@ -1109,21 +1123,41 @@ class ASHPHeater(HeatPumpHeater):
                     mode = 'Off'
 
         # Force HP off if outdoor temp is very cold
-        t_ext_db = self.current_schedule['Ambient Dry Bulb (C)']
         if self.outdoor_temp_limit is not None and t_ext_db < self.outdoor_temp_limit and 'HP' in mode:
             mode = 'ER On'
 
         return mode
 
-    def run_er_thermostat_control(self):
+    def run_er_thermostat_control(self,hp_lockout):
         # run thermostat control for ER element - lower the setpoint by the deadband
         # TODO: add option to keep setpoint as is, e.g. when using external control
-        er_setpoint = self.temp_setpoint - self.temp_deadband
         temp_indoor = self.zone.temperature
 
-        # On and off limits depend on heating vs. cooling
-        temp_turn_on = er_setpoint - self.hvac_mult * self.temp_deadband / 2
-        temp_turn_off = er_setpoint + self.hvac_mult * self.temp_deadband / 2
+        if hp_lockout:
+            #Use standard heatpump setpoint if HP is disabled due to low ambient temp
+            temp_turn_on = self.temp_setpoint - self.temp_deadband / 2
+            temp_turn_off = self.temp_setpoint + self.temp_deadband / 2
+
+        #Cycle at secondary (lower) setpoint and deadband for ER control
+        else:
+            # On / off with a manually specified offset, to match thermostat heatpump control sequences
+            temp_turn_on = self.temp_setpoint - self.er_setpoint_offset
+            # Assuming standard behavior is that ER will cycle around lower setpoint
+            # Alternatly the ER element may stay on until top of primary setpoint
+            # Need to validate which is correct with field testing 
+            if self.er_upper_deadband_override:
+                # Turn back off at top off primary setpoint
+                temp_turn_off = self.temp_setpoint + self.temp_deadband / 2
+            else:
+                # Turn off at top of secondary setpoint 
+                temp_turn_off = self.temp_setpoint - self.er_setpoint_offset + self.temp_deadband
+
+        if temp_turn_on > self.temp_setpoint - self.temp_deadband / 2:
+            print(f'WARNING: Auxilary Heat lower deadband of {temp_turn_on} greater than heatpump deadband of {self.temp_setpoint - self.temp_deadband / 2}.')
+
+        if temp_turn_off > self.temp_setpoint + self.temp_deadband / 2:
+            print(f'WARNING: Auxilary Heat upper deadband of {temp_turn_off} greater than heatpump deadband of {self.temp_setpoint + self.temp_deadband / 2}.')
+
 
         # Determine mode
         if self.hvac_mult * (temp_indoor - temp_turn_on) < 0:
