@@ -53,21 +53,21 @@ def run_water_heater(dwelling_args):
     return df
 
 def plot_comparison(df_no_pcm, df_with_pcm):
-    plt.figure(figsize=(12, 8))
+    CreateFigures.plt.figure(figsize=(12, 8))
     
     # Plot without PCM
-    plt.plot(df_no_pcm.index, df_no_pcm["Hot Water Outlet Temperature (C)"], label="No PCM", color='blue')
+    CreateFigures.plt.plot(df_no_pcm.index, df_no_pcm["Hot Water Outlet Temperature (C)"], label="No PCM", color='blue')
     
     # Plot with PCM
-    plt.plot(df_with_pcm.index, df_with_pcm["Hot Water Outlet Temperature (C)"], label="With PCM", color='red')
+    CreateFigures.plt.plot(df_with_pcm.index, df_with_pcm["Hot Water Outlet Temperature (C)"], label="With PCM", color='red')
     
     # Set plot labels and title
-    plt.xlabel("Time")
-    plt.ylabel("Temperature (°C)")
-    plt.title("Comparison of Hot Water Outlet Temperature\n PCM Water Node:"+ str(pcm_water_node) +"\n PCM Vol Fraction:" +str(pcm_vol_fraction))
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    CreateFigures.plt.xlabel("Time")
+    CreateFigures.plt.ylabel("Temperature (°C)")
+    CreateFigures.plt.title("Comparison of Hot Water Outlet Temperature\n PCM Water Node:"+ str(pcm_water_node) +"\n PCM Vol Fraction:" +str(pcm_vol_fraction))
+    CreateFigures.plt.legend()
+    CreateFigures.plt.grid(True)
+    CreateFigures.plt.show()
 
 if __name__ == '__main__':
     # Run simulation without PCM
