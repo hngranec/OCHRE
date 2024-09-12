@@ -4,7 +4,6 @@ Created on Thu Sep 12 13:10:39 2024
 
 @author: halgr
 """
-
 import datetime as dt
 import matplotlib.pyplot as plt  # Ensure matplotlib is imported
 
@@ -12,8 +11,8 @@ from ochre import Dwelling, CreateFigures
 from ochre.Models import TankWithPCM
 from bin.run_dwelling import dwelling_args
 
-pcm_water_node = 5
-pcm_vol_fraction = 0.2
+pcm_water_node = 9
+pcm_vol_fraction = 0.5
 
 dwelling_args.update(
     {
@@ -65,7 +64,7 @@ def plot_comparison(df_no_pcm, df_with_pcm):
     # Set plot labels and title
     plt.xlabel("Time")
     plt.ylabel("Temperature (°C)")
-    plt.title("Comparison of Hot Water Outlet Temperature")
+    plt.title("Comparison of Hot Water Outlet Temperature\n PCM Water Node:"+ str(pcm_water_node) +"\n PCM Vol Fraction:" +str(pcm_vol_fraction))
     plt.legend()
     plt.grid(True)
     plt.show()

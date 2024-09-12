@@ -5,7 +5,7 @@ from ochre.Models import TankWithPCM
 from bin.run_dwelling import dwelling_args
 
 pcm_water_node = 5
-pcm_vol_fraction = 0.2
+pcm_vol_fraction = 0.3
 
 
 dwelling_args.update(
