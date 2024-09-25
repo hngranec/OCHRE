@@ -3,9 +3,10 @@ import datetime as dt
 from ochre import Dwelling, CreateFigures
 from ochre.Models import TankWithPCM
 from bin.run_dwelling import dwelling_args
+from ochre.defaults import MediumUse
 
 pcm_water_node = 5
-pcm_vol_fraction = 0.3
+pcm_vol_fraction = 0.5
 
 
 dwelling_args.update(
@@ -41,7 +42,7 @@ def run_water_heater(dwelling_args, plot_title):
 
     # If necessary, update equipment schedule
     equipment.model.schedule['Zone Temperature (C)'] = 19.722222 #from the UEF standard https://www.energy.gov/eere/buildings/articles/2014-06-27-issuance-test-procedures-residential-and-commercial-water
-    #equipment.model.schedule['Water Use Schedule (L/min)'] = #file_name_here.csv * 3.78541 #could also use "convert" built in function to go gal>L, or just convert the schedule files directly to L/min
+    equipment.model.schedule['Water Use Schedule (L/min)'] = MediumUse.csv * 3.78541 #could also use "convert" built in function to go gal>L, or just convert the schedule files directly to L/min
     equipment.model.schedule['Mains Temperature (C)'] = 14.4444
     #TODO: 50% RH schedule? Will have some impact on HP performance, but not much
     equipment.reset_time()
