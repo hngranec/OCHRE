@@ -134,6 +134,8 @@ class StratifiedWaterModel(RCModel):
         draw_tempered = self.current_schedule.get('Water Heating (L/min)', 0)
         draw_hot = (self.current_schedule.get('Clothes Washer (L/min)', 0)
                     + self.current_schedule.get('Dishwasher (L/min)', 0))
+        print(draw_hot)
+        print(draw_tempered)
         # draw_cw = self.current_schedule.get('Clothes Washer (L/min)', 0)
         # draw_hot = self.current_schedule.get('Dishwasher (L/min)', 0)
         if not (draw_tempered + draw_hot):

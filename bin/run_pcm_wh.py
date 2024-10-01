@@ -3,17 +3,26 @@ import datetime as dt
 from ochre import Dwelling, CreateFigures
 from ochre.Models import TankWithPCM
 from bin.run_dwelling import dwelling_args
-from ochre.defaults import MediumUse
+
+
 
 pcm_water_node = 5
 pcm_vol_fraction = 0.5
+LowUseUEF = 'LowUseL.csv'
+MediumUseUEF = 'MediumUseL.csv'
+HighUseUEF = 'HighUseL.csv'
+no_pcm_title = "No PCM, PCM Water Node:"+ str(pcm_water_node) +", PCM Vol Fraction:" +str(pcm_vol_fraction)
+with_pcm_title = "With PCM, PCM Water Node:"+ str(pcm_water_node) +", PCM Vol Fraction:" +str(pcm_vol_fraction)
 
+load_profile = MediumUseUEF
 
 dwelling_args.update(
     {
         "time_res": dt.timedelta(minutes=1),  # time resolution of the simulation
         "duration": dt.timedelta(days=2),  # duration of the simulation
         "verbosity": 9,
+        #"schedule_input_file":load_profile
+
     }
 )
 
@@ -29,7 +38,7 @@ def add_pcm_model(dwelling_args):
     return dwelling_args
 
 
-def run_water_heater(dwelling_args, plot_title):
+def run_water_heater(dwelling_args,plot_title,load_profile_in):
     # Create Dwelling from input files, see bin/run_dwelling.py
     dwelling = Dwelling(**dwelling_args)
 
@@ -42,7 +51,7 @@ def run_water_heater(dwelling_args, plot_title):
 
     # If necessary, update equipment schedule
     equipment.model.schedule['Zone Temperature (C)'] = 19.722222 #from the UEF standard https://www.energy.gov/eere/buildings/articles/2014-06-27-issuance-test-procedures-residential-and-commercial-water
-    equipment.model.schedule['Water Use Schedule (L/min)'] = MediumUse.csv * 3.78541 #could also use "convert" built in function to go gal>L, or just convert the schedule files directly to L/min
+    equipment.model.schedule['Water Use Schedule (L/min)'] = load_profile_in #converted the schedule files directly to L/min
     equipment.model.schedule['Mains Temperature (C)'] = 14.4444
     #TODO: 50% RH schedule? Will have some impact on HP performance, but not much
     equipment.reset_time()
@@ -52,16 +61,18 @@ def run_water_heater(dwelling_args, plot_title):
 
     # print(df.head())
     CreateFigures.plot_time_series_detailed((df["Hot Water Outlet Temperature (C)"],))
+    CreateFigures.plot_time_series_detailed((df["Hot Water Delivered (L/min)"],))
     CreateFigures.plt.title(plot_title)
+    CreateFigures.plt.suptitle(load_profile_in)
     CreateFigures.plt.show()
 
 
 if __name__ == '__main__':
     #run without PCM
-    run_water_heater(dwelling_args, "No PCM \n PCM Water Node:"+ str(pcm_water_node) +"\n PCM Vol Fraction:" +str(pcm_vol_fraction))
+    run_water_heater(dwelling_args,no_pcm_title,load_profile)
 
     #update to include PCM
     dwelling_args = add_pcm_model(dwelling_args)
     
     #Run with PCM
-    run_water_heater(dwelling_args, "With PCM \n PCM Water Node:"+ str(pcm_water_node) +"\n PCM Vol Fraction:" +str(pcm_vol_fraction))
+    run_water_heater(dwelling_args,with_pcm_title,load_profile)
